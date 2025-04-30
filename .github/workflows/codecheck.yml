@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
-      checks: write
+      commit-statuses: write
 
     defaults:
       run:
