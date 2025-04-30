@@ -18,8 +18,7 @@ jobs:
   code-check:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read
-      commit-statuses: write
+      statuses: write
 
     defaults:
       run:
