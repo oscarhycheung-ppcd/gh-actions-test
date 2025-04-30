@@ -48,21 +48,16 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            console.log('Running in workflow_dispatch mode');
-
-            const { github, context } = require('@actions/github');
-            const commitSha = context.sha;
-
             try {
               // Create a new commit status for the current commit
               const status = await github.rest.repos.createCommitStatus({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                sha: commitSha,
+                sha: context.sha,
                 state: 'success',
                 context: 'Code Check',
                 description: 'The code check has passed successfully.',
-                target_url: context.payload.workflow_run.html_url,
+                target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               });
               console.log('Commit status created:', status.data);
             } catch (error) {
