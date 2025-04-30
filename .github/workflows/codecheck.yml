@@ -74,48 +74,30 @@ jobs:
                 head: `${context.repo.owner}:${currentBranch}`,
               });
 
-              const checkCreatePromises = [];
-              
-              // If we found PRs, update them all
-              if (pullRequests.length > 0) {
-                console.log(`Found ${pullRequests.length} open pull requests for branch ${currentBranch}`);
-                
-                pullRequests.forEach((pullRequest) => {
-                  console.log(`Updating PR #${pullRequest.number}`);
-                  checkCreatePromises.push(github.rest.checks.create({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    name: 'Code Check',
-                    head_sha: pullRequest.head.sha,
-                    status: 'completed',
-                    conclusion: 'success',
-                    output: {
-                      title: 'Code Check Passed',
-                      summary: 'The code check has passed successfully.',
-                    },
-                  }));
-                });
-              } else {
-                console.log('No open pull requests found for this branch.');
+              const checkCreatePromises = pullRequests.map((pullRequest) => {
+                console.log(`Updating PR #${pullRequest.number}`);
+                return github.rest.checks.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: 'Code Check',
+                  head_sha: pullRequest.head.sha,
+                  status: 'completed',
+                  conclusion: 'success',
+                  output: {
+                    title: 'Code Check Passed',
+                    summary: 'The code check has passed successfully.',
+                    text: `PR #${pullRequest.number} passed the code check.`
+                  },
+                  details_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                  ref: `refs/pull/${pullRequest.number}/head`
+                }));
+              });
+
+              if (checkCreatePromises.length === 0) {
+                console.log('No open pull requests found for the current branch.');
+                return;
               }
-
-              // Create a check directly on the current commit
-              const sha = context.sha;
-              console.log(`Creating check on commit SHA: ${sha}`);
-
-              checkCreatePromises.push(github.rest.checks.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: 'Code Check',
-                head_sha: sha,
-                status: 'completed',
-                conclusion: 'success',
-                output: {
-                  title: 'Code Check Passed',
-                  summary: 'The code check has passed successfully.',
-                },
-              }));
-
+                
               // Wait for all check creation promises to resolve
               await Promise.all(checkCreatePromises);
               console.log('Successfully created all status checks');
