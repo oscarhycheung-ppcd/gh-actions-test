@@ -22,9 +22,12 @@ jobs:
   code-check:
     runs-on: ubuntu-latest
     defaults:
-      runs:
+      run:
         shell: bash
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: print current GitHub context
         run: |
           echo "Current GitHub context:"
