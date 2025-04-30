@@ -43,7 +43,7 @@ jobs:
           fi
 
       - name: Update pull request status
-        if: dispatchh.event == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch'
         id: update_pr
         uses: actions/github-script@v7
         with:
