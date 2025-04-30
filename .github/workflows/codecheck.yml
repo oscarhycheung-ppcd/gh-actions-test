@@ -9,10 +9,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Codegen"]
-    types:
-      - completed
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,110 +19,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+
     defaults:
       run:
         shell: bash
     steps:
-      - name: print current GitHub context
+      - name: Print GitHub context
         run: |
           echo "Current GitHub context:"
           echo "${{ toJson(github) }}"
-
-      - name: Get PR information from workflow run
-        if: github.event_name == 'workflow_run'
-        id: get-pr-info
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const workflowRunId = context.payload.workflow_run.id;
-            console.log(`Looking up PRs for workflow run ID: ${workflowRunId}`);
-
-            // Get all the workflow jobs for this run
-            const jobsResponse = await github.rest.actions.listJobsForWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: workflowRunId
-            });
-
-            // Find the job that created the PR
-            const prJob = jobsResponse.data.jobs.find(job => job.name === 'code-gen');
-
-            if (!prJob) {
-              console.log('Could not find the code-gen job in the workflow run');
-              return;
-            }
-
-            console.log(`Found code-gen job: ${prJob.id}`);
-
-            // Get recent PRs in the repo and find the one that was created by this workflow
-            const prsResponse = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              sort: 'created',
-              direction: 'desc',
-              per_page: 10
-            });
-
-            // Get the workflow run timing information
-            const runDetails = await github.rest.actions.getWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: workflowRunId
-            });
-
-            const runCreatedTime = new Date(runDetails.data.created_at);
-            console.log(`Workflow run created at: ${runCreatedTime.toISOString()}`);
-
-            // Find PRs created around the same time as the workflow run
-            let matchingPR = null;
-            for (const pr of prsResponse.data) {
-              const prCreatedTime = new Date(pr.created_at);
-              console.log(`PR #${pr.number} created at: ${prCreatedTime.toISOString()}`);
-              
-              // Check if PR was created within 2 minutes of the workflow run
-              const timeDiff = Math.abs(prCreatedTime - runCreatedTime) / 1000 / 60; // minutes
-              if (timeDiff < 2) {
-                console.log(`PR #${pr.number} was created within 2 minutes of workflow run (${timeDiff.toFixed(2)} minutes)`);
-                matchingPR = pr;
-                break;
-              }
-            }
-
-            if (!matchingPR) {
-              console.log('Could not find a matching PR created by this workflow run');
-              return;
-            }
-
-            console.log(`Found matching PR #${matchingPR.number}: ${matchingPR.title}`);
-
-            core.setOutput('pr_number', matchingPR.number);
-            core.setOutput('pr_head_ref', matchingPR.head.ref);
-            core.setOutput('pr_head_sha', matchingPR.head.sha);
-
-            // Set environment variables to make the data available to future steps
-            core.exportVariable('PR_NUMBER', matchingPR.number);
-            core.exportVariable('PR_HEAD_REF', matchingPR.head.ref);
-            core.exportVariable('PR_HEAD_SHA', matchingPR.head.sha);
-
-      - name: Checkout PR branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.get-pr-info.outputs.pr_head_ref || github.ref }}
-          fetch-depth: 0
-
-      - name: Show PR details
-        if: env.PR_NUMBER
-        run: |
-          echo "Processing PR #${PR_NUMBER}"
-          echo "Branch: ${PR_HEAD_REF}"
-          echo "SHA: ${PR_HEAD_SHA}"
-
-          # Show the commits in the PR branch to verify we have the right content
-          echo "Commits in the PR branch:"
-          git log --oneline -n 5
 
       - name: Read random.txt
         id: read_random
