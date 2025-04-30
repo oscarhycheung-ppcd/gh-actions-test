@@ -21,17 +21,73 @@ concurrency:
 jobs:
   code-check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     defaults:
       run:
         shell: bash
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: print current GitHub context
         run: |
           echo "Current GitHub context:"
           echo "${{ toJson(github) }}"
+
+      - name: Get PR information from workflow run
+        if: github.event_name == 'workflow_run'
+        id: get-pr-info
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const workflowRunId = context.payload.workflow_run.id;
+            console.log(`Looking up PRs for workflow run ID: ${workflowRunId}`);
+
+            // Get the source branch from the workflow run
+            const runResponse = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: workflowRunId
+            });
+
+            const sourceBranch = runResponse.data.head_branch;
+            const headSha = runResponse.data.head_sha;
+
+            console.log(`Source branch: ${sourceBranch}, Head SHA: ${headSha}`);
+
+            // Find PRs associated with this branch
+            const prsResponse = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${sourceBranch}`,
+              state: 'open'
+            });
+
+            if (prsResponse.data.length === 0) {
+              console.log('No PRs found for this branch');
+              return;
+            }
+
+            // Get the first matching PR
+            const pr = prsResponse.data[0];
+            console.log(`Found PR #${pr.number}: ${pr.title}`);
+
+            core.setOutput('pr_number', pr.number);
+            core.setOutput('pr_head_ref', pr.head.ref);
+            core.setOutput('pr_head_sha', pr.head.sha);
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.get-pr-info.outputs.pr_head_ref || github.ref }}
+
+      - name: Show PR details
+        if: steps.get-pr-info.outputs.pr_number != ''
+        run: |
+          echo "Processing PR #${{ steps.get-pr-info.outputs.pr_number }}"
+          echo "Branch: ${{ steps.get-pr-info.outputs.pr_head_ref }}"
+          echo "SHA: ${{ steps.get-pr-info.outputs.pr_head_sha }}"
+
       - name: Read random.txt
         run: |
           if [ -f random.txt ]; then
