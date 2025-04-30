@@ -42,63 +42,30 @@ jobs:
             echo "random.txt does not exist."
           fi
 
-      - name: Update pull request status
+      - name: Create a commit status
         if: github.event_name == 'workflow_dispatch'
-        id: update_pr
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             console.log('Running in workflow_dispatch mode');
 
-            // For workflow_dispatch events, we need to determine the current branch
-            let currentBranch;
-
-            if (context.ref && context.ref.startsWith('refs/heads/')) {
-              currentBranch = context.ref.replace('refs/heads/', '');
-            } else if (context.payload && context.payload.ref) {
-              currentBranch = context.payload.ref.replace('refs/heads/', '');
-            } else {
-              console.log('Could not determine branch from context. Using default branch.');
-              currentBranch = 'main';
-            }
-
-            console.log(`Working with branch: ${currentBranch}`);
-            console.log('Context ref:', context.ref);
+            const { github, context } = require('@actions/github');
+            const commitSha = context.sha;
 
             try {
-              const { data: pullRequests } = await github.rest.pulls.list({
+              // Create a new commit status for the current commit
+              const status = await github.rest.repos.createCommitStatus({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                state: 'open',
-                head: `${context.repo.owner}:${currentBranch}`,
+                sha: commitSha,
+                state: 'success',
+                context: 'Code Check',
+                description: 'The code check has passed successfully.',
+                target_url: context.payload.workflow_run.html_url,
               });
-
-              const checkCreatePromises = pullRequests.map((pullRequest) => github.rest.checks.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: 'Code Check',
-                head_sha: pullRequest.head.sha,
-                status: 'completed',
-                conclusion: 'success',
-                output: {
-                  title: 'Code Check Passed',
-                  summary: 'The code check has passed successfully.',
-                  text: `PR #${pullRequest.number} passed the code check.`
-                },
-                details_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-                ref: `refs/pull/${pullRequest.number}/head`
-              }));
-
-              if (checkCreatePromises.length === 0) {
-                console.log('No open pull requests found for the current branch.');
-                return;
-              }
-
-              // Wait for all check creation promises to resolve
-              await Promise.all(checkCreatePromises);
-              console.log('Successfully created all status checks');
+              console.log('Commit status created:', status.data);
             } catch (error) {
-              console.error('Error in GitHub script:', error);
-              core.setFailed(`GitHub script error: ${error.message}`);
+              console.error('Error creating commit status:', error);
+              throw error;
             }
