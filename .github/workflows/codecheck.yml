@@ -1,0 +1,39 @@
+name: Code Check
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - ready_for_review
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Codegen"]
+    types:
+      - completed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-check:
+    runs-on: ubuntu-latest
+    defaults:
+      runs:
+        shell: bash
+    steps:
+      - name: print current GitHub context
+        run: |
+          echo "Current GitHub context:"
+          echo "${{ toJson(github) }}"
+      - name: Read random.txt
+        run: |
+          if [ -f random.txt ]; then
+            echo "random.txt exists. Contents:"
+            cat random.txt
+          else
+            echo "random.txt does not exist."
+          fi
