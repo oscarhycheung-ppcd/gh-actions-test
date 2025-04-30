@@ -54,7 +54,7 @@ jobs:
                 repo: context.repo.repo,
                 sha: context.sha,
                 state: 'success',
-                context: 'Code Check',
+                context: 'code-check',
                 description: 'The code check has passed successfully.',
                 target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               });
