@@ -29,11 +29,20 @@ jobs:
           branch_name="branch-$(date +'%Y%m%d%H%M%S')-$random_string"
           echo "BRANCH_NAME=$branch_name" >> $GITHUB_ENV
           echo "RANDOM_STRING=$random_string" >> $GITHUB_ENV
+          git checkout -b $branch_name
 
       - name: Add a random string to ./random.txt
         run: |
           echo "$RANDOM_STRING" >> random.txt
           echo "Added random string: $RANDOM_STRING to random.txt"
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add random.txt
+          git commit -m "Add random string to random.txt"
+          git push --set-upstream origin $BRANCH_NAME
 
       - name: Create Pull Request
         id: create-pr
